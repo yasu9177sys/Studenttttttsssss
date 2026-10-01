@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Management System</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+header{background:linear-gradient(135deg,#3157d5,#6b42d8);color:white;padding:28px 20px}
+header h1{margin:0 0 8px;font-size:30px}
+header p{margin:0;opacity:.9}
+.container{max-width:1100px;margin:25px auto;padding:0 16px}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:20px}
+.card{background:white;border-radius:16px;padding:22px;box-shadow:0 8px 25px #1b315a18}
+h2{margin-top:0}
+label{display:block;font-weight:bold;margin:13px 0 6px}
+input{width:100%;padding:12px;border:1px solid #ccd4e0;border-radius:9px;font-size:15px}
+button{border:0;border-radius:9px;padding:11px 16px;cursor:pointer;font-weight:bold}
+.primary{background:#3157d5;color:white}
+.secondary{background:#e9edf5;color:#26324a}
+.danger{background:#e94b5f;color:white}
+.actions{display:flex;gap:8px;margin-top:18px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #e8ebf1}
+th{background:#f7f8fb}
+.badge{display:inline-block;padding:5px 9px;border-radius:20px;background:#e7efff;color:#3157d5;font-size:12px;font-weight:bold}
+.search{margin-bottom:15px}
+.empty{text-align:center;padding:35px;color:#778198}
+.stats{display:flex;gap:12px;margin-bottom:20px}
+.stat{flex:1;background:white;padding:16px;border-radius:12px;box-shadow:0 5px 18px #1b315a12}
+.stat strong{font-size:25px;display:block}
+.status{margin-top:12px;padding:10px;border-radius:8px;display:none}
+.success{background:#e6f7ed;color:#187442}
+.error{background:#fde8eb;color:#a52538}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.table-wrap{overflow:auto}table{min-width:650px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>Student Management System</h1>
+    <p>Java Full-Stack project prototype — HTML + CSS + JavaScript + JDBC/MySQL architecture</p>
+  </div>
+</header>
+
+<main class="container">
+  <div class="stats">
+    <div class="stat"><span>Total Students</span><strong id="total">0</strong></div>
+    <div class="stat"><span>Departments</span><strong id="departments">0</strong></div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2 id="formTitle">Add Student</h2>
+      <form id="studentForm">
+        <input type="hidden" id="editId">
+
+        <label for="name">Student Name</label>
+        <input id="name" required placeholder="Enter student name">
+
+        <label for="email">Email</label>
+        <input id="email" type="email" required placeholder="student@example.com">
+
+        <label for="course">Course</label>
+        <input id="course" required placeholder="B.Tech CSE">
+
+        <label for="phone">Phone</label>
+        <input id="phone" required placeholder="9876543210">
+
+        <div class="actions">
+          <button class="primary" type="submit" id="saveBtn">Add Student</button>
+          <button class="secondary" type="button" onclick="resetForm()">Clear</button>
+        </div>
+        <div id="status" class="status"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Student Records</h2>
+      <input class="search" id="search" placeholder="Search by name, email or course...">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th><th>Name</th><th>Email</th><th>Course</th><th>Phone</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="studentTable"></tbody>
+        </table>
+      </div>
+      <div id="empty" class="empty">No students found.</div>
+    </section>
+  </div>
+</main>
+
+<script>
+const STORAGE_KEY = "student_management_data";
+
+let students = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+if (!students.length) {
+  students = [
+    {id:1,name:"Ravi Kumar",email:"ravi@example.com",course:"B.Tech CSE",phone:"9876543210"},
+    {id:2,name:"Kiran Reddy",email:"kiran@example.com",course:"B.Tech ECE",phone:"9876501234"}
+  ];
+  saveData();
+}
+
+const form = document.getElementById("studentForm");
+const table = document.getElementById("studentTable");
+const search = document.getElementById("search");
+
+function saveData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+}
+
+function render(){
+  const q = search.value.toLowerCase().trim();
+
+  const filtered = students.filter(s =>
+    s.name.toLowerCase().includes(q) ||
+    s.email.toLowerCase().includes(q) ||
+    s.course.toLowerCase().includes(q)
+  );
+
+  table.innerHTML = "";
+
+  filtered.forEach(s => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td><span class="badge">${s.id}</span></td>
+      <td>${escapeHtml(s.name)}</td>
+      <td>${escapeHtml(s.email)}</td>
+      <td>${escapeHtml(s.course)}</td>
+      <td>${escapeHtml(s.phone)}</td>
+      <td>
+        <button class="secondary" onclick="editStudent(${s.id})">Edit</button>
+        <button class="danger" onclick="deleteStudent(${s.id})">Delete</button>
+      </td>`;
+    table.appendChild(row);
+  });
+
+  document.getElementById("empty").style.display = filtered.length ? "none" : "block";
+  document.getElementById("total").textContent = students.length;
+  document.getElementById("departments").textContent =
+    new Set(students.map(s => s.course)).size;
+}
+
+form.addEventListener("submit", function(e){
+  e.preventDefault();
+
+  const editId = Number(document.getElementById("editId").value);
+  const student = {
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    course: document.getElementById("course").value.trim(),
+    phone: document.getElementById("phone").value.trim()
+  };
+
+  if(editId){
+    const index = students.findIndex(s => s.id === editId);
+    if(index !== -1){
+      students[index] = {id:editId, ...student};
+      showStatus("Student updated successfully.", true);
+    }
+  } else {
+    const newId = students.length ? Math.max(...students.map(s => s.id)) + 1 : 1;
+    students.push({id:newId, ...student});
+    showStatus("Student added successfully.", true);
+  }
+
+  saveData();
+  render();
+  resetForm(false);
+});
+
+function editStudent(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+
+  document.getElementById("editId").value = s.id;
+  document.getElementById("name").value = s.name;
+  document.getElementById("email").value = s.email;
+  document.getElementById("course").value = s.course;
+  document.getElementById("phone").value = s.phone;
+  document.getElementById("formTitle").textContent = "Edit Student";
+  document.getElementById("saveBtn").textContent = "Update Student";
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function deleteStudent(id){
+  const s = students.find(x => x.id === id);
+  if(!s) return;
+
+  if(confirm("Delete " + s.name + "?")){
+    students = students.filter(x => x.id !== id);
+    saveData();
+    render();
+    showStatus("Student deleted successfully.", true);
+  }
+}
+
+function resetForm(clearStatus=true){
+  form.reset();
+  document.getElementById("editId").value = "";
+  document.getElementById("formTitle").textContent = "Add Student";
+  document.getElementById("saveBtn").textContent = "Add Student";
+  if(clearStatus) document.getElementById("status").style.display = "none";
+}
+
+function showStatus(message, success){
+  const box = document.getElementById("status");
+  box.textContent = message;
+  box.className = "status " + (success ? "success" : "error");
+  box.style.display = "block";
+  setTimeout(() => box.style.display = "none", 2500);
+}
+
+function escapeHtml(value){
+  return value.replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[c]));
+}
+
+search.addEventListener("input", render);
+render();
+</script>
+</body>
+</html>
